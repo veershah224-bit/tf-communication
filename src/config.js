@@ -70,5 +70,8 @@ export const config = {
   },
 };
 
-// True only when SMTP is fully configured (so we send real email instead of test codes).
-export const emailConfigured = Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
+// "Real email" is on if Brevo's web API key is set (works on hosts that block SMTP,
+// e.g. Render free), or if full SMTP is configured (works locally).
+export const emailConfigured = Boolean(
+  process.env.BREVO_API_KEY || (config.smtp.host && config.smtp.user && config.smtp.pass),
+);
