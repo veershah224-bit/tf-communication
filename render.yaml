@@ -1,0 +1,32 @@
+# Render Blueprint — deploys TF Communication on the FREE plan.
+# After importing, set the secret values (sync:false) in the Render dashboard.
+services:
+  - type: web
+    name: tf-communication
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ALLOW_OPEN_REGISTRATION
+        value: "false"
+      # --- secrets: set these in the Render dashboard ---
+      - key: TOKEN_SECRET          # 64-char random hex (login token signing key)
+        sync: false
+      - key: MESSAGE_KEY           # 64-char random hex (message encryption key)
+        sync: false
+      - key: TURSO_DATABASE_URL    # from Turso (e.g. libsql://your-db.turso.io)
+        sync: false
+      - key: TURSO_AUTH_TOKEN      # from Turso
+        sync: false
+      - key: SMTP_HOST             # smtp.gmail.com
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER             # your sending Gmail address
+        sync: false
+      - key: SMTP_PASS             # Gmail App Password
+        sync: false
+      - key: SMTP_FROM             # e.g. TF Communication <you@gmail.com>
+        sync: false

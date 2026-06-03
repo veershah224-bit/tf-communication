@@ -1,0 +1,26 @@
+{
+  "name": "tf-communication",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Secure team messenger: web, email one-time-code login, admin staff management, group + direct chats, encrypted at rest.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "nodemailer": "^8.0.10",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  },
+  "optionalDependencies": {
+    "@libsql/client": "^0.14.0"
+  }
+}

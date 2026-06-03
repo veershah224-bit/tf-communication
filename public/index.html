@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>TF Communication</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- ============================ LOGIN (email -> code) ====================== -->
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo">TF</div>
+        <h1>TF Communication</h1>
+        <p>Secure messaging for your team</p>
+      </div>
+
+      <!-- Step 1: email (and name, first time only) -->
+      <form id="email-form" class="auth-step">
+        <label class="field">
+          <span>Email</span>
+          <input id="f-email" type="email" autocomplete="email" placeholder="you@example.com" />
+        </label>
+        <label id="row-name" class="field hidden">
+          <span>Your name</span>
+          <input id="f-name" type="text" autocomplete="name" placeholder="e.g. Sara Khan" />
+          <small class="field-hint">First time here — your name is how colleagues will see you.</small>
+        </label>
+        <div id="email-error" class="error hidden"></div>
+        <button type="submit" id="send-code-btn" class="btn-primary">Send me a code</button>
+        <p class="hint">We email you a 6-digit code to sign in — no password to remember.</p>
+      </form>
+
+      <!-- Step 2: enter code -->
+      <form id="code-form" class="auth-step hidden">
+        <p class="code-sent">Enter the 6-digit code we sent to <strong id="code-email"></strong>.</p>
+        <div id="test-code" class="test-code hidden"></div>
+        <label class="field">
+          <span>Code</span>
+          <input id="f-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" class="code-input" />
+        </label>
+        <div id="code-error" class="error hidden"></div>
+        <button type="submit" class="btn-primary">Verify &amp; sign in</button>
+        <div class="code-actions">
+          <button type="button" id="resend-code" class="link-btn">Resend code</button>
+          <button type="button" id="change-email" class="link-btn">Use a different email</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================= APP =================================== -->
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <header class="sidebar-head">
+        <button class="me" id="me-button" type="button" title="Account">
+          <div class="avatar" id="me-avatar"></div>
+          <div class="me-info">
+            <strong id="me-name"></strong>
+            <span id="me-email"></span>
+          </div>
+        </button>
+        <div class="head-actions">
+          <button id="btn-new-direct" class="icon-btn" title="New chat" type="button">&#9998;</button>
+          <button id="btn-new-group" class="icon-btn" title="New group" type="button">&#128101;</button>
+          <button id="btn-menu" class="icon-btn" title="Menu" type="button">&#8942;</button>
+        </div>
+        <div id="account-menu" class="menu hidden">
+          <button id="menu-admin" class="menu-item hidden" type="button">&#128101; Manage staff</button>
+          <button id="menu-logout" class="menu-item" type="button">&#9099; Log out</button>
+          <button id="menu-logout-all" class="menu-item danger" type="button">&#9888; Log out everywhere</button>
+        </div>
+      </header>
+      <div class="search">
+        <input id="search" type="text" placeholder="Search chats" />
+      </div>
+      <div id="conversation-list" class="conversation-list"></div>
+    </aside>
+
+    <main class="chat">
+      <div id="chat-empty" class="chat-empty">
+        <div>
+          <div class="big-logo">TF</div>
+          <p>Select a chat, or start a new one</p>
+          <p class="muted">Messages are encrypted and stored on your own server.</p>
+        </div>
+      </div>
+
+      <div id="chat-view" class="chat-view hidden">
+        <header class="chat-head">
+          <button id="chat-back" class="icon-btn chat-back" type="button">&#8249;</button>
+          <div class="avatar" id="chat-avatar"></div>
+          <div class="chat-head-info">
+            <strong id="chat-title"></strong>
+            <span id="chat-subtitle"></span>
+          </div>
+        </header>
+        <div id="messages" class="messages"></div>
+        <div id="typing-indicator" class="typing-indicator hidden"></div>
+        <form id="composer" class="composer">
+          <input id="composer-input" type="text" placeholder="Type a message" autocomplete="off" />
+          <button type="submit" class="send-btn" title="Send">&#10148;</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- ================================ MODAL ================================== -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modal-title"></h3>
+        <button id="modal-close" class="icon-btn" type="button">&#10005;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm install 2>&1)",
+      "PowerShell(node --input-type=module --disable-warning=ExperimentalWarning -e \"import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync\\('data/app.sqlite'\\); const u=db.prepare\\('SELECT id,username,display_name,is_admin,created_at FROM users ORDER BY id'\\).all\\(\\); for\\(const x of u\\){ console.log\\(`#${x.id}  @${x.username}  \\\\\"${x.display_name}\\\\\"  admin=${x.is_admin}  ${new Date\\(x.created_at\\).toLocaleString\\(\\)}`\\); } console.log\\('total users:', u.length\\);\")"
+    ]
+  }
+}
