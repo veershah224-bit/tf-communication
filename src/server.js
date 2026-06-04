@@ -1,9 +1,10 @@
 // TF Communication — server (Express HTTP + Socket.IO real-time).
 import express from 'express';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-import { config, emailConfigured } from './config.js';
+import { config, emailConfigured, uploadsEnabled } from './config.js';
 import * as store from './db.js';
 import {
   signToken, verifyToken, encryptMessage, decryptMessage,
@@ -56,14 +57,41 @@ const norm = (s) => String(s || '').trim();
 const normEmail = (s) => norm(s).toLowerCase();
 const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+// Only accept attachments that point at our own Cloudinary storage.
+function sanitizeAttachment(a) {
+  if (!a || typeof a !== 'object') return null;
+  const url = String(a.url || '');
+  if (!/^https:\/\/res\.cloudinary\.com\//.test(url)) return null;
+  const type = ['image', 'video', 'raw'].includes(a.type) ? a.type : 'raw';
+  return {
+    url,
+    type,
+    name: String(a.name || 'file').slice(0, 200),
+    size: Number(a.size) || 0,
+    format: String(a.format || '').slice(0, 12),
+  };
+}
+
 function decodeMessageRow(row) {
-  let text;
+  let text = '';
+  let attachment = null;
   try {
-    text = decryptMessage({ iv: row.iv, ct: row.ct, tag: row.tag });
+    const raw = decryptMessage({ iv: row.iv, ct: row.ct, tag: row.tag });
+    try {
+      const o = JSON.parse(raw);
+      if (o && typeof o === 'object' && ('text' in o || 'attachment' in o)) {
+        text = o.text || '';
+        attachment = o.attachment || null;
+      } else {
+        text = raw; // legacy plain-text message
+      }
+    } catch {
+      text = raw; // legacy plain-text message
+    }
   } catch {
     text = '[unable to decrypt]';
   }
-  return { id: row.id, conversationId: row.conversation_id, senderId: row.sender_id, text, createdAt: row.created_at };
+  return { id: row.id, conversationId: row.conversation_id, senderId: row.sender_id, text, attachment, createdAt: row.created_at };
 }
 
 async function conversationSummary(convId, userId) {
@@ -83,7 +111,14 @@ async function conversationSummary(convId, userId) {
   let lastMessage = null;
   if (last) {
     const d = decodeMessageRow(last);
-    lastMessage = { text: d.text, senderId: d.senderId, createdAt: d.createdAt };
+    let preview = d.text;
+    if (d.attachment) {
+      const label = d.attachment.type === 'image' ? '📷 Photo'
+        : d.attachment.type === 'video' ? '🎥 Video'
+          : `📎 ${d.attachment.name || 'File'}`;
+      preview = d.text ? `${label} · ${d.text}` : label;
+    }
+    lastMessage = { text: preview, senderId: d.senderId, createdAt: d.createdAt };
   }
 
   return {
@@ -236,6 +271,20 @@ app.post('/api/auth/verify-code', ah(async (req, res) => {
 
 app.get('/api/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
 
+// Tells the browser whether file sharing is available (so it shows the 📎 button).
+app.get('/api/config', (req, res) => res.json({ uploadsEnabled }));
+
+// Signs a short-lived Cloudinary upload so the browser can upload directly.
+app.post('/api/upload-signature', requireAuth, (req, res) => {
+  if (!uploadsEnabled) return res.status(503).json({ error: 'File sharing is not set up yet.' });
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = 'tf-communication';
+  const signature = createHash('sha1')
+    .update(`folder=${folder}&timestamp=${timestamp}${config.cloudinary.apiSecret}`)
+    .digest('hex');
+  res.json({ cloudName: config.cloudinary.cloudName, apiKey: config.cloudinary.apiKey, timestamp, folder, signature });
+});
+
 app.post('/api/logout-everywhere', requireAuth, ah(async (req, res) => {
   await store.bumpTokenEpoch(req.user.id);
   disconnectUserSockets(req.user.id);
@@ -350,12 +399,14 @@ io.on('connection', async (socket) => {
   on('message:send', async (payload, ack) => {
     const convId = Number(payload?.conversationId);
     const text = String(payload?.text || '').trim();
-    if (!text) return ack({ error: 'Empty message.' });
+    const attachment = sanitizeAttachment(payload?.attachment);
+    if (!text && !attachment) return ack({ error: 'Empty message.' });
     if (text.length > 4000) return ack({ error: 'Message is too long (max 4000 characters).' });
     if (!(await store.isMember(convId, uid))) return ack({ error: 'Not allowed.' });
 
-    const saved = await store.insertMessage({ conversationId: convId, senderId: uid, enc: encryptMessage(text) });
-    const msg = { id: saved.id, conversationId: convId, senderId: uid, text, createdAt: saved.created_at };
+    const enc = encryptMessage(JSON.stringify({ text, attachment }));
+    const saved = await store.insertMessage({ conversationId: convId, senderId: uid, enc });
+    const msg = { id: saved.id, conversationId: convId, senderId: uid, text, attachment, createdAt: saved.created_at };
     const members = await store.getMembers(convId);
     for (const m of members) {
       emitToUser(m.id, 'message:new', msg);

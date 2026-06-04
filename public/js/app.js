@@ -29,6 +29,8 @@ const state = {
   messages: new Map(),
 };
 const typingByConv = new Map();
+let uploadsEnabled = false;
+let pendingAttachment = null;
 
 // -------------------------------------------------------------- REST calls --
 async function api(path, { method = 'GET', body, auth = false } = {}) {
@@ -160,6 +162,9 @@ function startApp() {
   a.textContent = initials(me.displayName);
   a.style.background = colorFor(me.id);
   $('#menu-admin').classList.toggle('hidden', !me.isAdmin);
+  api('/api/config')
+    .then((c) => { uploadsEnabled = !!c.uploadsEnabled; $('#attach-btn').classList.toggle('hidden', !uploadsEnabled); })
+    .catch(() => {});
   connectSocket();
 }
 
@@ -377,7 +382,8 @@ function renderMessages() {
       nm.style.color = colorFor(m.senderId);
       bubble.appendChild(nm);
     }
-    bubble.appendChild(el('div', 'text', m.text));
+    if (m.attachment) bubble.appendChild(renderAttachment(m.attachment));
+    if (m.text) bubble.appendChild(el('div', 'text', m.text));
     bubble.appendChild(el('div', 'time', fmtTime(m.createdAt)));
     wrap.appendChild(bubble);
     box.appendChild(wrap);
@@ -399,9 +405,12 @@ $('#composer').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const input = $('#composer-input');
   const text = input.value.trim();
-  if (!text || !state.active) return;
+  if ((!text && !pendingAttachment) || !state.active) return;
+  const attachment = pendingAttachment;
   input.value = '';
-  socket.emit('message:send', { conversationId: state.active, text }, (resp) => {
+  pendingAttachment = null;
+  hideAttachPreview();
+  socket.emit('message:send', { conversationId: state.active, text, attachment }, (resp) => {
     if (resp && resp.error) alert(resp.error);
   });
   stopTyping();
@@ -437,6 +446,106 @@ function renderTyping() {
   const names = [...m.values()];
   ind.textContent = names.length === 1 ? `${names[0]} is typing…` : `${names.join(', ')} are typing…`;
   ind.classList.remove('hidden');
+}
+
+// ------------------------------------------------------------- attachments --
+$('#attach-btn').onclick = () => $('#file-input').click();
+$('#file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !state.active) return;
+  if (file.size > 50 * 1024 * 1024) { alert('That file is too big (max 50 MB).'); return; }
+  showAttachPreview(file.name, true);
+  try {
+    pendingAttachment = await uploadFile(file);
+    showAttachPreview(file.name, false);
+    $('#composer-input').focus();
+  } catch {
+    pendingAttachment = null;
+    hideAttachPreview();
+    alert('Upload failed. Please try again.');
+  }
+});
+
+async function uploadFile(file) {
+  const sig = await api('/api/upload-signature', { method: 'POST', auth: true });
+  const form = new FormData();
+  form.append('file', file);
+  form.append('api_key', sig.apiKey);
+  form.append('timestamp', sig.timestamp);
+  form.append('signature', sig.signature);
+  form.append('folder', sig.folder);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/auto/upload`);
+    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) setAttachProgress(Math.round((ev.loaded / ev.total) * 100)); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const r = JSON.parse(xhr.responseText);
+        resolve({ url: r.secure_url, type: r.resource_type, name: file.name, size: r.bytes, format: r.format });
+      } else reject(new Error('upload failed'));
+    };
+    xhr.onerror = () => reject(new Error('upload failed'));
+    xhr.send(form);
+  });
+}
+
+function showAttachPreview(name, uploading) {
+  const p = $('#attach-preview');
+  p.innerHTML = '';
+  p.classList.remove('hidden');
+  const row = el('div', 'attach-row');
+  row.appendChild(el('span', 'attach-name', (uploading ? 'Uploading: ' : 'Ready to send: ') + name));
+  if (uploading) {
+    const bar = el('div', 'attach-bar');
+    const fill = el('div', 'attach-bar-fill');
+    fill.id = 'attach-progress-bar';
+    bar.appendChild(fill);
+    row.appendChild(bar);
+  } else {
+    const x = el('button', 'attach-remove', '✕');
+    x.type = 'button';
+    x.onclick = () => { pendingAttachment = null; hideAttachPreview(); };
+    row.appendChild(x);
+  }
+  p.appendChild(row);
+}
+const hideAttachPreview = () => { const p = $('#attach-preview'); p.classList.add('hidden'); p.innerHTML = ''; };
+const setAttachProgress = (pct) => { const b = $('#attach-progress-bar'); if (b) b.style.width = pct + '%'; };
+
+function renderAttachment(att) {
+  const wrap = el('div', 'attachment');
+  if (att.type === 'image') {
+    const img = el('img', 'att-image');
+    img.src = att.url;
+    img.loading = 'lazy';
+    img.onclick = () => window.open(att.url, '_blank', 'noopener');
+    wrap.appendChild(img);
+  } else if (att.type === 'video') {
+    const v = el('video', 'att-video');
+    v.src = att.url;
+    v.controls = true;
+    wrap.appendChild(v);
+  } else {
+    const a = el('a', 'att-file');
+    a.href = att.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.appendChild(el('span', 'att-file-icon', '📎'));
+    const info = el('div', 'att-file-info');
+    info.appendChild(el('span', 'att-file-name', att.name || 'File'));
+    info.appendChild(el('span', 'att-file-size', formatSize(att.size)));
+    a.appendChild(info);
+    wrap.appendChild(a);
+  }
+  return wrap;
+}
+function formatSize(b) {
+  if (!b) return '';
+  const u = ['B', 'KB', 'MB', 'GB'];
+  let n = b; let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i += 1; }
+  return `${n.toFixed(i > 0 && n < 10 ? 1 : 0)} ${u[i]}`;
 }
 
 // ----------------------------------------------------------------- modals ---

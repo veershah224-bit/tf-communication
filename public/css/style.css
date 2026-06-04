@@ -180,6 +180,26 @@ button { cursor: pointer; font-family: inherit; }
 .send-btn { flex: none; border: none; background: var(--green); color: #fff; width: 46px; height: 46px; border-radius: 50%; font-size: 18px; display: flex; align-items: center; justify-content: center; }
 .send-btn:hover { background: var(--green-dark); }
 
+/* ---- attachments ---- */
+.attach-btn { flex: none; }
+.attach-preview { padding: 8px 16px; background: #f0f2f5; }
+.attach-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.attach-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attach-bar { flex: 1; height: 6px; background: #e9edef; border-radius: 4px; overflow: hidden; }
+.attach-bar-fill { width: 0; height: 100%; background: var(--green); transition: width .15s; }
+.attach-remove { flex: none; border: none; background: #eee; color: #444; width: 24px; height: 24px; border-radius: 50%; font-size: 12px; }
+.attach-remove:hover { background: #ddd; }
+
+.attachment { margin-bottom: 4px; }
+.att-image { max-width: min(260px, 70vw); max-height: 280px; border-radius: 8px; display: block; cursor: pointer; }
+.att-video { max-width: min(280px, 75vw); max-height: 300px; border-radius: 8px; display: block; background: #000; }
+.att-file { display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, .05); border-radius: 8px; padding: 8px 10px; text-decoration: none; color: var(--text); max-width: 260px; }
+.att-file:hover { background: rgba(0, 0, 0, .09); }
+.att-file-icon { font-size: 22px; }
+.att-file-info { display: flex; flex-direction: column; min-width: 0; }
+.att-file-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-file-size { font-size: 12px; color: var(--muted); }
+
 /* ---- modal ---- */
 .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .modal-card { width: 100%; max-width: 460px; background: #fff; border-radius: 12px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; }

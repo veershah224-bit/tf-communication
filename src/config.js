@@ -68,10 +68,23 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || process.env.SMTP_USER || 'TF Communication <no-reply@tf.local>',
   },
+
+  // Cloudinary stores shared photos/videos/files (free tier). Files upload from the
+  // browser straight to Cloudinary using a short-lived signature from the server.
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
 };
 
 // "Real email" is on if Brevo's web API key is set (works on hosts that block SMTP,
 // e.g. Render free), or if full SMTP is configured (works locally).
 export const emailConfigured = Boolean(
   process.env.BREVO_API_KEY || (config.smtp.host && config.smtp.user && config.smtp.pass),
+);
+
+// File sharing is available when Cloudinary is fully configured.
+export const uploadsEnabled = Boolean(
+  config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret,
 );
