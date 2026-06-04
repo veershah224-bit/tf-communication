@@ -72,7 +72,8 @@ button { cursor: pointer; font-family: inherit; }
 .error { background: #fdecea; color: #b3261e; padding: 9px 11px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
 .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 14px; }
 
-.code-sent { font-size: 14px; margin-bottom: 12px; line-height: 1.4; }
+.code-sent { font-size: 14px; margin-bottom: 8px; line-height: 1.4; }
+.spam-hint { font-size: 12.5px; color: var(--muted); background: #f0f6ff; border: 1px solid #d6e6ff; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.4; }
 .code-input { letter-spacing: 8px; font-size: 22px !important; text-align: center; font-weight: 700; }
 .code-actions { display: flex; justify-content: space-between; margin-top: 14px; }
 .link-btn { background: none; border: none; color: var(--green); font-size: 13px; font-weight: 600; padding: 4px; }
@@ -171,7 +172,18 @@ button { cursor: pointer; font-family: inherit; }
 .msg.mine .bubble { background: var(--bubble-mine); }
 .bubble .sender { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
 .bubble .text { font-size: 14.5px; line-height: 1.35; white-space: pre-wrap; }
-.bubble .time { font-size: 11px; color: var(--muted); text-align: right; margin-top: 2px; }
+.bubble .time { font-size: 11px; color: var(--muted); }
+.bubble .meta { display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin-top: 2px; }
+.tick { font-size: 12px; color: var(--muted); letter-spacing: -2px; }
+.tick.read { color: #53bdeb; }
+.msg-link { color: #027eb5; text-decoration: underline; word-break: break-all; }
+
+/* date separators + grouping + subtle bubble tails (WhatsApp feel) */
+.date-sep { text-align: center; margin: 14px 0 8px; }
+.date-sep span { background: #e8f0f1; color: #54656f; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 12px; box-shadow: var(--shadow); }
+.msg.grouped { margin-top: -3px; }
+.msg:not(.grouped):not(.mine) .bubble { border-top-left-radius: 2px; }
+.msg:not(.grouped).mine .bubble { border-top-right-radius: 2px; }
 
 .typing-indicator { padding: 2px 8% 6px; font-size: 13px; color: var(--green-dark); font-style: italic; background: var(--bg-chat); }
 

@@ -379,12 +379,16 @@ io.on('connection', async (socket) => {
   on('conversation:open', async (payload, ack) => {
     const convId = Number(payload?.conversationId);
     if (!(await store.isMember(convId, uid))) return ack({ error: 'Not allowed.' });
-    await store.markRead(convId, uid);
-    const [messages, members] = await Promise.all([store.getMessages(convId), store.getMembers(convId)]);
+    const maxId = await store.markRead(convId, uid);
+    const [messages, members, reads] = await Promise.all([
+      store.getMessages(convId), store.getMembers(convId), store.getReadStates(convId),
+    ]);
+    for (const m of members) if (m.id !== uid) emitToUser(m.id, 'message:read', { conversationId: convId, userId: uid, lastRead: maxId });
     ack({
       conversationId: convId,
       messages: messages.map(decodeMessageRow),
       members: members.map((m) => ({ id: m.id, displayName: m.display_name, email: m.email })),
+      reads: reads.map((r) => ({ userId: r.user_id, lastRead: r.last_read_message_id })),
     });
     await pushConversations(uid);
   });
@@ -392,7 +396,8 @@ io.on('connection', async (socket) => {
   on('conversation:read', async (payload) => {
     const convId = Number(payload?.conversationId);
     if (!(await store.isMember(convId, uid))) return;
-    await store.markRead(convId, uid);
+    const maxId = await store.markRead(convId, uid);
+    for (const m of await store.getMembers(convId)) if (m.id !== uid) emitToUser(m.id, 'message:read', { conversationId: convId, userId: uid, lastRead: maxId });
     await pushConversations(uid);
   });
 

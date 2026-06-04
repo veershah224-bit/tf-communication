@@ -27,6 +27,7 @@ const state = {
   conversations: [],
   active: null,
   messages: new Map(),
+  reads: new Map(),     // convId -> Map(userId -> lastReadMessageId)  (for ✓✓)
 };
 const typingByConv = new Map();
 let uploadsEnabled = false;
@@ -282,6 +283,11 @@ function connectSocket() {
   });
   socket.on('message:new', onMessageNew);
   socket.on('typing', onTyping);
+  socket.on('message:read', (d) => {
+    if (!state.reads.has(d.conversationId)) state.reads.set(d.conversationId, new Map());
+    state.reads.get(d.conversationId).set(d.userId, d.lastRead);
+    if (d.conversationId === state.active) renderMessages();
+  });
 }
 
 // --------------------------------------------------------- conversation list
@@ -337,6 +343,7 @@ function openConversation(id) {
     if (!resp || resp.error) { $('#messages').innerHTML = ''; return; }
     if (state.active !== id) return;
     state.messages.set(id, resp.messages);
+    if (resp.reads) state.reads.set(id, new Map(resp.reads.map((r) => [r.userId, r.lastRead])));
     renderMessages();
   });
   $('#composer-input').focus();
@@ -372,23 +379,85 @@ function renderMessages() {
   const conv = state.conversations.find((c) => c.id === state.active);
   const isGroup = conv && conv.type === 'group';
 
+  let lastDate = '';
+  let prevSender = null;
+  let prevTime = 0;
   for (const m of msgs) {
+    const dayKey = new Date(m.createdAt).toDateString();
+    if (dayKey !== lastDate) {
+      lastDate = dayKey;
+      prevSender = null;
+      const sep = el('div', 'date-sep');
+      sep.appendChild(el('span', null, dateLabel(m.createdAt)));
+      box.appendChild(sep);
+    }
     const mine = m.senderId === me.id;
-    const wrap = el('div', 'msg' + (mine ? ' mine' : ''));
+    const grouped = m.senderId === prevSender && m.createdAt - prevTime < 5 * 60 * 1000;
+    const wrap = el('div', `msg${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`);
     const bubble = el('div', 'bubble');
-    if (!mine && isGroup) {
+    if (!mine && isGroup && !grouped) {
       const sender = state.users.get(m.senderId);
       const nm = el('div', 'sender', sender ? sender.displayName : 'Unknown');
       nm.style.color = colorFor(m.senderId);
       bubble.appendChild(nm);
     }
     if (m.attachment) bubble.appendChild(renderAttachment(m.attachment));
-    if (m.text) bubble.appendChild(el('div', 'text', m.text));
-    bubble.appendChild(el('div', 'time', fmtTime(m.createdAt)));
+    if (m.text) { const t = el('div', 'text'); linkifyInto(t, m.text); bubble.appendChild(t); }
+    const meta = el('div', 'meta');
+    meta.appendChild(el('span', 'time', fmtTime(m.createdAt)));
+    if (mine) meta.appendChild(buildTick(m, conv));
+    bubble.appendChild(meta);
     wrap.appendChild(bubble);
     box.appendChild(wrap);
+    prevSender = m.senderId;
+    prevTime = m.createdAt;
   }
   box.scrollTop = box.scrollHeight;
+}
+
+function dateLabel(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  const opts = { day: 'numeric', month: 'long' };
+  if (d.getFullYear() !== today.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString([], opts);
+}
+
+// Turn URLs into clickable links without ever using innerHTML (stays XSS-safe).
+function linkifyInto(node, text) {
+  const re = /(https?:\/\/[^\s]+)/g;
+  let last = 0;
+  let mt;
+  while ((mt = re.exec(text)) !== null) {
+    if (mt.index > last) node.appendChild(document.createTextNode(text.slice(last, mt.index)));
+    const a = document.createElement('a');
+    a.href = mt[0];
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'msg-link';
+    a.textContent = mt[0];
+    node.appendChild(a);
+    last = mt.index + mt[0].length;
+  }
+  if (last < text.length) node.appendChild(document.createTextNode(text.slice(last)));
+}
+
+// ✓ = sent, ✓✓ (blue) = read by everyone else in the chat.
+function buildTick(m, conv) {
+  const tick = el('span', 'tick');
+  const others = (conv && conv.memberIds ? conv.memberIds : []).filter((id) => id !== me.id);
+  const reads = state.reads.get(conv ? conv.id : -1);
+  let readByAll = others.length > 0;
+  for (const id of others) {
+    if (!reads || (reads.get(id) || 0) < m.id) { readByAll = false; break; }
+  }
+  if (readByAll) { tick.textContent = '✓✓'; tick.classList.add('read'); }
+  else { tick.textContent = '✓'; }
+  return tick;
 }
 
 function onMessageNew(msg) {

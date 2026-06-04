@@ -144,3 +144,7 @@ export async function markRead(convId, userId) {
   await run('UPDATE conversation_members SET last_read_message_id = ? WHERE conversation_id = ? AND user_id = ?', [maxId, convId, userId]);
   return maxId;
 }
+
+// How far each member has read (powers the ✓✓ read receipts).
+export const getReadStates = (convId) =>
+  all('SELECT user_id, last_read_message_id FROM conversation_members WHERE conversation_id = ?', [convId]);
